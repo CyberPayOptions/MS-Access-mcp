@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Publish server
+        shell: pwsh
+        run: |
+          $publishDir = Join-Path $env:RUNNER_TEMP "release"
+          dotnet publish MS.Access.MCP.Official/MS.Access.MCP.Official.csproj -c Release -r win-x64 --self-contained true -o $publishDir
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $serverExe = Join-Path $env:RUNNER_TEMP "release" "MS.Access.MCP.Official.exe"
+          if (-not (Test-Path -LiteralPath $serverExe)) {
+            throw "Server executable not found: $serverExe"
+          }
+          & .\tests\ci_initialize_smoke.ps1 -ServerExe $serverExe
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release smoke test failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Create release zip
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $env:RUNNER_TEMP "release"
+          $zipPath = Join-Path $env:RUNNER_TEMP "MS.Access.MCP.Official-win-x64.zip"
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $zipPath
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/MS.Access.MCP.Official-win-x64.zip
+          generate_release_notes: true
