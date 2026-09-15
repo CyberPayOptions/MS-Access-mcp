@@ -6417,7 +6417,7 @@ namespace MS.Access.MCP.Interop
 
                     var existingValue = TryGetDynamicProperty(control, propertyName);
                     var convertedValue = ConvertValueForProperty(value, existingValue);
-                    SetDynamicProperty(control, propertyName, convertedValue);
+                    SetDynamicPropertyWithPropertiesFallback(control, propertyName, convertedValue);
                     accessApp.DoCmd.Save(2, formName);
                 }
                 finally
@@ -13264,13 +13264,18 @@ namespace MS.Access.MCP.Interop
 
         private static int MapControlTypeToConstant(string? controlType)
         {
-            return (controlType ?? string.Empty).Trim().ToLowerInvariant() switch
+            var normalized = (controlType ?? string.Empty).Trim().ToLowerInvariant()
+                .Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .Replace(" ", string.Empty);
+
+            return normalized switch
             {
                 "label" => 100,
                 "line" => 101,
                 "rectangle" => 102,
                 "image" => 103,
-                "commandbutton" => 104,
+                "commandbutton" or "button" or "accommandbutton" => 104,
                 "optionbutton" => 105,
                 "checkbox" => 106,
                 "optiongroup" => 107,
@@ -13283,7 +13288,9 @@ namespace MS.Access.MCP.Interop
                 "tabcontrol" => 123,
                 "page" => 124,
                 "pagebreak" => 118,
-                _ => 109 // default to TextBox
+                _ => throw new ArgumentException(
+                    $"Unsupported control type '{controlType}'. Use a supported Access control type such as 'command_button', 'text_box', 'label', 'combo_box', or 'list_box'.",
+                    nameof(controlType))
             };
         }
 
@@ -13528,6 +13535,32 @@ namespace MS.Access.MCP.Interop
                 new object?[] { value },
                 null,
                 null);
+        }
+
+        private static void SetDynamicPropertyWithPropertiesFallback(object target, string propertyName, object? value)
+        {
+            try
+            {
+                SetDynamicProperty(target, propertyName, value);
+                return;
+            }
+            catch (Exception directSetException)
+            {
+                try
+                {
+                    var properties = TryGetDynamicProperty(target, "Properties")
+                        ?? throw new InvalidOperationException($"The control does not expose a Properties collection for '{propertyName}'.");
+                    var property = InvokeDynamicMethod(properties, "Item", propertyName)
+                        ?? throw new InvalidOperationException($"Property '{propertyName}' was not found on the control.");
+                    SetDynamicProperty(property, "Value", value);
+                }
+                catch (Exception fallbackException)
+                {
+                    throw new InvalidOperationException(
+                        $"Unable to set control property '{propertyName}'.",
+                        new AggregateException(directSetException, fallbackException));
+                }
+            }
         }
 
         private static object? InvokeDynamicMethod(object target, string methodName, params object?[] args)
