@@ -5,6 +5,7 @@
 # Publish/package outputs
 mcp-server-official/
 mcp-server-official-x64/
+mcp-server-official-x86/
 mcp-server-official-x64-run-*/
 mcp-server-official-x64-smoke*/
 mcp-server-official-x64-next*/
@@ -18,6 +19,13 @@ mcp-server-official-x64-regression-failed-*/
 
 # Build artifacts (dotnet publish intermediate output)
 artifacts/
+
+# Compiled binaries and publish metadata
+**/*.dll
+**/*.exe
+**/*.pdb
+**/*.deps.json
+**/*.runtimeconfig.json
 
 # Access transient lock files
 *.laccdb
