@@ -143,7 +143,17 @@ class Program
         {
             // Log fatal errors to stderr
             Console.Error.WriteLine($"Fatal error: {ex.Message}");
-            Environment.Exit(1);
+        }
+        finally
+        {
+            try
+            {
+                accessService.Dispose();
+            }
+            catch (Exception cleanupException)
+            {
+                Console.Error.WriteLine($"Shutdown cleanup failed: {cleanupException.Message}");
+            }
         }
     }
 
