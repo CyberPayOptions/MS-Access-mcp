@@ -86,6 +86,9 @@ namespace MS.Access.MCP.Interop
         {
             ResetTransactionState(attemptRollback: true);
             CloseSqlConnections();
+            CloseOpenRecordsets();
+            if (_accessApplication != null)
+                ResetAccessApplication();
             _currentDatabasePath = null;
             _databasePassword = null;
             _systemDatabasePath = null;
@@ -11190,6 +11193,33 @@ namespace MS.Access.MCP.Interop
             _activeDataProvider = DataProviderKind.None;
         }
 
+        private void CloseOpenRecordsets()
+        {
+            foreach (var kvp in _openRecordsets)
+            {
+                try
+                {
+                    kvp.Value.Close();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[DAO] Failed to close recordset '{kvp.Key}': {ex.Message}");
+                }
+
+                try
+                {
+                    if (Marshal.IsComObject(kvp.Value))
+                        Marshal.FinalReleaseComObject(kvp.Value);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[DAO] Failed to release recordset '{kvp.Key}': {ex.Message}");
+                }
+            }
+
+            _openRecordsets.Clear();
+        }
+
         private void ExecuteWithOleDbReleased(Action action)
         {
             EnsureNoActiveTransaction("Temporarily releasing OleDb connection");
@@ -11455,6 +11485,8 @@ namespace MS.Access.MCP.Interop
             }
 
             int accessPid = 0;
+
+            CloseOpenRecordsets();
 
             if (_accessApplication != null)
             {
@@ -13867,14 +13899,6 @@ namespace MS.Access.MCP.Interop
         {
             if (!_disposed)
             {
-                // Close any open recordsets
-                foreach (var kvp in _openRecordsets)
-                {
-                    try { kvp.Value.Close(); } catch { }
-                    try { Marshal.ReleaseComObject(kvp.Value); } catch { }
-                }
-                _openRecordsets.Clear();
-
                 try
                 {
                     CloseAccess();
