@@ -96,6 +96,32 @@ namespace MS.Access.MCP.Interop
         public bool IsConnected => !string.IsNullOrWhiteSpace(_currentDatabasePath);
         public string? CurrentDatabasePath => _currentDatabasePath;
 
+        public void BeginTask()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AccessInteropService));
+        }
+
+        public void CompleteTask(string? saveMode = null)
+        {
+            Exception? closeException = null;
+            try
+            {
+                CloseAccess(saveMode ?? "save_all");
+            }
+            catch (Exception ex)
+            {
+                closeException = ex;
+            }
+            finally
+            {
+                Disconnect();
+            }
+
+            if (closeException != null)
+                throw new InvalidOperationException("Task cleanup could not close Microsoft Access cleanly.", closeException);
+        }
+
         public DatabaseCreateResult CreateDatabase(string databasePath, bool overwrite = false)
         {
             var normalizedDatabasePath = NormalizeDatabasePath(databasePath, nameof(databasePath), requireExists: false);

@@ -299,6 +299,8 @@ class Program
                 new { name = "get_object_events", description = "Get object event bindings from Access form/report objects.", inputSchema = new { type = "object", properties = new { object_type = new { type = "string" }, object_name = new { type = "string" } }, required = new string[] { "object_type", "object_name" } } },
                 new { name = "set_object_event", description = "Set object event binding on Access form/report objects.", inputSchema = new { type = "object", properties = new { object_type = new { type = "string" }, object_name = new { type = "string" }, event_name = new { type = "string" }, event_value = new { type = "string" } }, required = new string[] { "object_type", "object_name", "event_name", "event_value" } } },
                 new { name = "disconnect_access", description = "Disconnect from the current Access database", inputSchema = new { type = "object", properties = new { } } },
+                new { name = "begin_task", description = "Begin a multi-step Access task. Keep the connection open until end_task is called.", inputSchema = new { type = "object", properties = new { } } },
+                new { name = "end_task", description = "Complete the current Access task. Closes Access, releases database connections, and ends the task session.", inputSchema = new { type = "object", properties = new { save_mode = new { type = "string", description = "save_all (default), prompt, or save_none" } } } },
                 new { name = "is_connected", description = "Check if connected to an Access database", inputSchema = new { type = "object", properties = new { } } },
                 new { name = "get_tables", description = "Get list of all tables in the database", inputSchema = new { type = "object", properties = new { } } },
                 new { name = "get_queries", description = "Get list of all queries in the database", inputSchema = new { type = "object", properties = new { } } },
@@ -682,6 +684,8 @@ class Program
             "get_object_events" => HandleGetObjectEvents(accessService, toolArguments),
             "set_object_event" => HandleSetObjectEvent(accessService, toolArguments),
             "disconnect_access" => HandleDisconnectAccess(accessService, toolArguments),
+            "begin_task" => HandleBeginTask(accessService, toolArguments),
+            "end_task" => HandleEndTask(accessService, toolArguments),
             "is_connected" => HandleIsConnected(accessService, toolArguments),
             "get_tables" => HandleGetTables(accessService, toolArguments),
             "get_queries" => HandleGetQueries(accessService, toolArguments),
@@ -3457,6 +3461,44 @@ class Program
         catch (Exception ex)
         {
             return BuildOperationErrorResponse("disconnect_access", ex);
+        }
+    }
+
+    static object HandleBeginTask(AccessInteropService accessService, JsonElement arguments)
+    {
+        try
+        {
+            accessService.BeginTask();
+            return new
+            {
+                success = true,
+                message = "Task started. Keep the Access connection open until end_task is called."
+            };
+        }
+        catch (Exception ex)
+        {
+            return BuildOperationErrorResponse("begin_task", ex);
+        }
+    }
+
+    static object HandleEndTask(AccessInteropService accessService, JsonElement arguments)
+    {
+        try
+        {
+            var saveMode = TryGetOptionalString(arguments, "save_mode", out var requestedSaveMode)
+                ? requestedSaveMode
+                : "save_all";
+            accessService.CompleteTask(saveMode);
+            SendNotification("notifications/resources/list_changed");
+            return new
+            {
+                success = true,
+                message = "Task completed. Access and database connections were closed."
+            };
+        }
+        catch (Exception ex)
+        {
+            return BuildOperationErrorResponse("end_task", ex);
         }
     }
 
