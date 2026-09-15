@@ -2,7 +2,7 @@
 
 ## Architecture
 
-This is a .NET 8 (x64-only, Windows) MCP server using custom JSON-RPC over stdio.
+This is a .NET 8 (x86, Windows) MCP server using custom JSON-RPC over stdio. x86 is required for the installed 32-bit Access/ACE components.
 - `MS.Access.MCP.Official/Program.cs` — JSON-RPC dispatch, handler methods, MCP protocol
 - `MS.Access.MCP.Interop/AccessInteropService.cs` — All COM/DAO/OLEDB interop with Access
 - No SDK builder pattern — dispatch is a `method switch` in the main loop (line ~60)

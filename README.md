@@ -240,7 +240,20 @@ Add to `.vscode/mcp.json` in your workspace:
 The server exposes 360 tools covering the full practical Access COM/DAO surface. Below is a summary by category — run `tools/list` for the complete schema with argument definitions.
 
 ### Connection & Database Lifecycle
-`connect_access`, `disconnect_access`, `is_connected`, `close_access`, `close_database`, `launch_access`, `create_database`, `backup_database`, `compact_repair_database`
+`begin_task`, `connect_access`, `disconnect_access`, `end_task`, `is_connected`, `close_access`, `close_database`, `launch_access`, `create_database`, `backup_database`, `compact_repair_database`
+
+#### Task lifecycle and lock cleanup
+
+Use `begin_task` before a multi-step database task and keep the connection open while the steps run. Call `end_task` after the task is complete. `end_task` closes Microsoft Access, releases database connections, and clears the connector state; its optional `save_mode` is `save_all` by default and may be `prompt` or `save_none`.
+
+```text
+begin_task
+connect_access(database_path)
+...perform all steps for the current task...
+end_task(save_mode="save_all")
+```
+
+Do not call `end_task` between individual steps in one workflow. An `.laccdb` file is expected while Access is active. It should be removed after `end_task` completes and the MCP process has released all Access instances. If a lock remains, stop every running MCP server instance before treating it as stale. The server also performs this cleanup during normal process disposal.
 
 ### Tables & Schema
 `get_tables`, `create_table`, `delete_table`, `describe_table`, `rename_table`, `get_system_tables`, `get_table_properties`, `get_table_custom_property`, `set_table_custom_property`, `get_table_description`, `set_table_description`, `get_table_validation`
