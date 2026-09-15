@@ -12855,7 +12855,8 @@ namespace MS.Access.MCP.Interop
             if (!isLoaded)
             {
                 var view = openInDesignView ? 1 : 0; // 1 = Design view, 0 = Normal view
-                accessApp.DoCmd.OpenForm(formName, view);
+                var windowMode = 1; // acHidden
+                accessApp.DoCmd.OpenForm(formName, view, Type.Missing, Type.Missing, Type.Missing, windowMode);
                 openedHere = true;
             }
 
