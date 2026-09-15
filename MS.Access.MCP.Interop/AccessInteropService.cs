@@ -12840,7 +12840,19 @@ namespace MS.Access.MCP.Interop
         {
             openedHere = false;
 
-            if (!IsFormLoaded(accessApp, formName))
+            var isLoaded = IsFormLoaded(accessApp, formName);
+            if (isLoaded && openInDesignView)
+            {
+                var loadedForm = FindObjectByName(accessApp.Forms, formName);
+                var currentView = ToInt32(TryGetDynamicProperty(loadedForm, "CurrentView"));
+                if (currentView != 0)
+                {
+                    CloseFormInternal(accessApp, formName, saveChanges: true);
+                    isLoaded = false;
+                }
+            }
+
+            if (!isLoaded)
             {
                 var view = openInDesignView ? 1 : 0; // 1 = Design view, 0 = Normal view
                 accessApp.DoCmd.OpenForm(formName, view);
